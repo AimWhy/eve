@@ -5,6 +5,8 @@ description: "Trace an agent with OpenTelemetry in instrumentation.ts, read the 
 
 `instrumentation.ts` is where you configure how an Eve agent is observed. The framework auto-discovers `agent/instrumentation.ts` and runs it at server startup before any agent code. Its presence implicitly enables telemetry, so there is no separate `isEnabled` toggle.
 
+If you intend to export telemetry, review the exporter destination, data categories, and required legal approvals before enabling telemetry.
+
 ## Three observability surfaces
 
 Eve observes an agent through three distinct surfaces. They do not all live in this file, and they write to different places:
@@ -49,6 +51,10 @@ Three more fields control what the AI SDK records inside those spans (see the AI
 - `recordInputs` records full message history on each step span (defaults to `true`). Set it to `false` if inputs contain sensitive content or you want to reduce span payload size.
 - `recordOutputs` records model outputs on spans (defaults to `true`). Set it to `false` to disable output recording.
 - `functionId` overrides the function name on spans (defaults to the agent name).
+
+For sensitive, regulated, or production data, set `recordInputs` and `recordOutputs` to `false` unless you have reviewed the exporter and its data-retention path.
+
+You are responsible for ensuring any observability or eval provider is approved for the data exported to it.
 
 The third configurable surface, [runtime context events](#runtime-context), attaches per-model-call values to these spans.
 
@@ -133,6 +139,8 @@ Per-turn usage tags are written on each step of a turn, accumulating cumulative 
 Tag writes are best-effort: a failure is logged once per process and then swallowed, so a broken tag emit never breaks the agent.
 
 These tags power the **Agent Runs** tab in the Vercel dashboard. When you deploy on Vercel, the platform auto-detects `eve` as the framework and surfaces an Agent Runs view under your project's **Observability** tab, where you can browse sessions and drill into each conversation's trace, with no `instrumentation.ts` required. The tab is currently gated per team. See [Deployment](./deployment#view-runs-in-the-dashboard) for enablement. Agent Runs is separate from the OpenTelemetry export above. Use OTel when you want spans in Braintrust, Datadog, or another third-party backend.
+
+Note: By default, telemetry records full message history and model outputs You may need to disclose these data flows in your privacy materials if utilized.
 
 ## Debugging
 

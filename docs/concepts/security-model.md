@@ -20,6 +20,30 @@ The sandbox is the isolated side. The model runs shell commands there through th
 
 A concrete trace makes the boundary clear. When the model calls a custom `charge_card` tool, its `execute` runs in the app runtime, reads `process.env.STRIPE_KEY`, calls Stripe, and returns `{ ok: true }`. The model sees only `{ ok: true }`: the key never leaves the app runtime, and nothing about the call touches the sandbox. The built-in `write_file` is the mirror image, running in the app runtime and proxying the write into the sandbox `/workspace`. Either way the model drives the work through tool calls and their results, never by holding a credential or reaching the runtime directly.
 
+## Data flow at a glance
+
+```mermaid
+flowchart LR
+  User["User or channel provider"] --> Channel["Channel route and route auth"]
+  Channel --> Runtime["Eve app runtime and durable session"]
+  Runtime --> Model["Configured model provider or Vercel AI Gateway"]
+  Runtime --> Tools["Authored tools and connections"]
+  Tools --> Services["Customer-selected external services"]
+  Runtime --> Sandbox["Per-session sandbox"]
+  Sandbox --> Egress["Allowed sandbox network egress"]
+  Runtime --> Telemetry["Configured telemetry or eval provider"]
+```
+
+Eve sends data where your agent configuration and runtime choices send it:
+
+- Inbound channel data flows through the channel provider you configure, then into the Eve app runtime.
+- Model inputs and outputs flow to the model or routing path selected in `agent.ts`, such as a Vercel AI Gateway model id or a provider-authored `LanguageModel`.
+- Tool and connection calls flow to the external services, MCP servers, OpenAPI endpoints, and channels you configure.
+- Sandbox commands can reach network destinations allowed by the sandbox network policy.
+- Telemetry and eval data flows to the exporters and providers you configure in `instrumentation.ts` or eval settings.
+
+Eve stores durable session and workflow state needed to resume conversations, stream events, replay completed steps, and show run observability. You are responsible for deciding whether the selected channels, model providers, connected services, sandbox egress destinations, telemetry exporters, retention settings, and deletion controls are appropriate for your data and use case.
+
 ## Credential brokering
 
 Credential brokering gives the model _authenticated_ network access from inside the sandbox, like a `git clone` of a private repo or an authenticated `curl`, when there's no [tool](../tools) or [connection](../connections) to route it through. On the Vercel Sandbox backend, auth headers get injected at the sandbox's network firewall for matching domains. The secret stays in the app runtime; the sandbox process only ever sees the response. See [Vercel Sandbox Credential Brokering](https://vercel.com/docs/sandbox/concepts/firewall#credentials-brokering) for the platform mechanism, and [Sandbox](../sandbox) for the Eve policy API.

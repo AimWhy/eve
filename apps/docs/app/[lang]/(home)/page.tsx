@@ -10,6 +10,7 @@ const title = "Eve";
 const tagline = "Like Next.js for web apps, but for agents.";
 const description =
   "Markdown for instructions and skills, TypeScript for tools. Durable by default.";
+const betaAgreementHref = "https://vercel.com/docs/release-phases/public-beta-agreement";
 
 export const metadata: Metadata = {
   title,
@@ -17,9 +18,15 @@ export const metadata: Metadata = {
 };
 
 const HomePage = () => (
-  <div className="mx-auto w-full max-w-[1080px] pb-32 [&_h1]:tracking-tighter [&_h2]:tracking-tighter [&_h3]:tracking-tighter">
+  <div className="mx-auto w-full max-w-[1080px] pb-32">
     <section className="relative flex flex-col items-center px-4 pb-32 pt-32 text-center sm:px-12">
-      <h1 className="max-w-3xl text-5xl font-bold tracking-tighter text-gray-1000 sm:text-6xl xl:text-7xl">
+      <Link
+        href={betaAgreementHref}
+        className="mb-6 rounded-full border border-amber-300 px-3 py-1 font-medium text-amber-700 text-xs transition-colors hover:bg-amber-50"
+      >
+        Public preview
+      </Link>
+      <h1 className="max-w-3xl text-5xl font-bold text-gray-1000 sm:text-6xl xl:text-7xl">
         The Framework
         <br />
         for Building Agents
