@@ -1,5 +1,10 @@
 export const Logo = () => (
-  <span className="font-semibold text-gray-1000 text-lg leading-none tracking-[-3%]">Eve</span>
+  <span className="flex items-center gap-2">
+    <span className="font-semibold text-gray-1000 text-lg leading-none">Eve</span>
+    <span className="rounded-full border border-amber-300 px-2 py-0.5 font-medium text-amber-700 text-xs leading-none">
+      Public Beta
+    </span>
+  </span>
 );
 
 export const github = {

@@ -62,6 +62,13 @@ const defaultDependencies: InitCommandDependencies = {
 
 const CURRENT_DIRECTORY_PROJECT_NAME = ".";
 const ALLOWED_CREATE_IN_PLACE_ENTRIES = new Set([".DS_Store", ".git", ".gitkeep", ".hg"]);
+const PUBLIC_BETA_NOTICE =
+  "Eve is currently in public beta and subject to the Vercel public beta agreement: " +
+  "https://vercel.com/docs/release-phases/public-beta-agreement";
+
+function withPublicBetaNotice(message: string): string {
+  return `${message}\n${pc.dim(PUBLIC_BETA_NOTICE)}`;
+}
 
 /** Resolves `target` to an existing directory, or undefined for name mode. */
 async function resolveTargetDirectory(
@@ -254,13 +261,21 @@ export async function runInitCommand(
       dependencies,
     );
     freshScaffold = true;
-    logger.log(`${pc.green("✓")} Created an ${EVE_WORDMARK} agent in ${pc.bold(projectPath)}`);
+    logger.log(
+      withPublicBetaNotice(
+        `${pc.green("✓")} Created an ${EVE_WORDMARK} agent in ${pc.bold(projectPath)}`,
+      ),
+    );
   } else {
     const addition = await addToExistingProject(existingDirectory, options, dependencies);
     packageManager = addition.packageManager;
     projectPath = existingDirectory;
     freshScaffold = false;
-    logger.log(`${pc.green("✓")} Added an ${EVE_WORDMARK} agent to ${pc.bold(projectPath)}`);
+    logger.log(
+      withPublicBetaNotice(
+        `${pc.green("✓")} Added an ${EVE_WORDMARK} agent to ${pc.bold(projectPath)}`,
+      ),
+    );
     if (addition.nodeEngineOverride !== undefined) {
       logger.log(pc.yellow(`⚠ ${formatNodeEngineOverrideWarning(addition.nodeEngineOverride)}`));
     }

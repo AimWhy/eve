@@ -5,6 +5,8 @@ description: "Trace an agent with OpenTelemetry in instrumentation.ts, read the 
 
 `instrumentation.ts` is where you configure how an Eve agent is observed. The framework auto-discovers `agent/instrumentation.ts` and runs it at server startup before any agent code. Its presence implicitly enables telemetry, so there is no separate `isEnabled` toggle.
 
+If you intend to export telemetry, review the exporter destination, data categories, and legal approvals before enabling telemetry.
+
 ## Three observability surfaces
 
 Eve observes an agent through three distinct surfaces. They do not all live in this file, and they write to different places:
@@ -42,13 +44,15 @@ Export the result of `defineInstrumentation` as the default export.
 
 Use the `setup` callback to register your OTel provider (for example `registerOTel` from `@vercel/otel`). The framework invokes it at server startup with the resolved agent name. `context.agentName` is resolved at compile time from your project (the package's `name`, falling back to the app directory name), so you never hard-code a service name.
 
-Any OTel-compatible backend works (Braintrust, Honeycomb, Datadog, Jaeger). Install the exporter package you need and configure it in the callback.
+Any OTel-compatible backend works (Braintrust, Honeycomb, Datadog, Jaeger). Install the exporter package you need and configure it in the callback. You are responsible for ensuring any observability or eval provider is approved for the data exported to it.
 
 Three more fields control what the AI SDK records inside those spans (see the AI SDK's [telemetry reference](https://ai-sdk.dev/docs/ai-sdk-core/telemetry)):
 
 - `recordInputs` records full message history on each step span (defaults to `true`). Set it to `false` if inputs contain sensitive content or you want to reduce span payload size.
 - `recordOutputs` records model outputs on spans (defaults to `true`). Set it to `false` to disable output recording.
 - `functionId` overrides the function name on spans (defaults to the agent name).
+
+For sensitive, regulated, or production data, consider setting `recordInputs` and `recordOutputs` to `false` unless you have approved the exporter and data-retention path.
 
 The third configurable surface, [runtime context events](#runtime-context), attaches per-model-call values to these spans.
 

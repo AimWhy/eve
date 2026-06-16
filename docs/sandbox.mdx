@@ -7,6 +7,8 @@ The sandbox is the agent's isolated bash environment: a filesystem rooted at `/w
 
 A working sandbox exists by default, with nothing to author. Override it only to add setup, seed files, pick a backend, or lock down the network.
 
+The default sandbox is not a substitute for configuring network policy, credentials, retention, deletion, or other controls required by your application.
+
 ## Using the sandbox
 
 The model already has shell and file access through the default tools:
@@ -164,6 +166,8 @@ There are two hooks, scoped differently:
 - **`bootstrap({ use })`** is template-scoped and runs once when the template is built. Put reusable setup here that every later session inherits, such as cloning a baseline repo, installing dependencies, or seeding files. Call `use()` to get a `SandboxSession`. Only template filesystem state and supported backend metadata carry into later sessions; config like network policy does not. If external inputs affect what bootstrap produces, set `revalidationKey: () => string` so Eve knows when to rebuild the template (authored sandbox source and seed contents are already tracked for you).
 - **`onSession({ use, ctx })`** is durable-session-scoped and runs once per session. Put per-session setup here, including network policy, resources, timeout, per-user credentials, and one-time markers. Because it runs inside the active runtime context, it can read `ctx.session` and derive the current principal without baking credentials into the template. Call `use(opts?)` to get a `SandboxSession`; `opts` flow to the backend's update path after create.
 
+If you require a network policy or other configuration for every session, configure it on the backend factory or in `onSession`; do not rely on bootstrap-only configuration.
+
 ```ts
 import { defineSandbox } from "eve/sandbox";
 import { vercel } from "eve/sandbox/vercel";
@@ -194,6 +198,8 @@ networkPolicy: {
   subnets: { deny: ["10.0.0.0/8"] },
 };
 ```
+
+Default egress is `allow-all`. For non-public, sensitive, regulated, or production workloads, configure `deny-all` or an explicit allow-list before running untrusted tools or handling sensitive data.
 
 Set it on the factory (`vercel({ networkPolicy: "deny-all" })`) and it applies before authored `bootstrap` code runs; framework-owned base setup may briefly keep egress open to install required packages. Set it in `onSession`'s `use()` to override per-session. The common pattern combines both: leave the factory open so `bootstrap` can `git clone`, then lock down in `onSession`. To change the policy mid-turn, call `sandbox.setNetworkPolicy(...)` on the live handle.
 

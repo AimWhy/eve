@@ -18,6 +18,8 @@ The route-auth policy lives on the HTTP channel factory (`agent/channels/eve.ts`
 - `POST /eve/v1/session/:sessionId`
 - `GET /eve/v1/session/:sessionId/stream`
 
+These routes are protected by the channel's auth policy. Eve fails closed by default: production browser traffic is rejected unless you configure an authenticator that accepts it, and anonymous access requires an explicit `none()`.
+
 `GET /eve/v1/health` is always public and skips the walk entirely, so load balancers and uptime monitors can probe it without credentials.
 
 ```ts title="agent/channels/eve.ts"
@@ -91,6 +93,8 @@ Any other thrown error follows the normal channel failure path. When building a 
 | `jwtHmac(...)`   | You control a shared-secret JWT signer.                                   |
 | `jwtEcdsa(...)`  | You verify asymmetric JWTs minted by another system.                      |
 | `oidc(...)`      | You want Eve to verify OIDC-issued tokens from an arbitrary issuer.       |
+
+Open routes should not be used for agents that process non-public, sensitive, regulated, or production data unless you have implemented other access controls.
 
 ### `localDev()`
 
@@ -209,6 +213,8 @@ Inside runtime code, `ctx.session.auth` carries the result of the channel's rout
 - Both are `null` only on internal runtime paths (subagents, for instance) that never went through an authored route. HTTP traffic always populates `auth.current`, since the walk either accepts with a `SessionAuthContext` or returns `401`.
 
 Use the principal on `auth.current` (or `auth.initiator`) to scope tools, resolve [dynamic capabilities](./dynamic-capabilities) per principal, or enforce tenant boundaries. There's no second per-session ownership ACL stacked on top of route auth. Access is decided at the HTTP boundary, and the durable session carries the caller snapshot forward into your runtime code.
+
+If multiple users or tenants can access the same route, implement any per-user, per-tenant, or per-session authorization required by your application.
 
 ## Tool and connection auth
 

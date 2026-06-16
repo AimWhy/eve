@@ -46,6 +46,8 @@ Notes:
 - **`connection_search`** is the model-facing `connection__search` tool. A search surfaces a connection's tools by their qualified name (e.g. `connection__linear__list_issues`), and the model can then call them directly. It's registered only when the agent has connections.
 - **`web_search`** has no local executor; the provider runs it. To supply your own implementation, override it with `defineTool()`.
 
+Review the built-in tools before production use. Disable, wrap, restrict, or require approval for tools that can access the filesystem, network, shell, connected services, or sensitive data.
+
 ## Override a default
 
 Author a tool at the same slug and it takes over the built-in of that name. The file `agent/tools/write_file.ts` replaces the built-in `write_file` by existing:

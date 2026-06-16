@@ -31,6 +31,8 @@ export default defineAgent({
 });
 ```
 
+Model use is subject to the terms, data-processing commitments, retention behavior, and available controls of the selected provider and routing path. Review the [AI Gateway model catalog](https://vercel.com/ai-gateway/models) for gateway-routed models, and review the provider's terms when you configure a direct `LanguageModel`.
+
 ## Compaction
 
 Compaction summarizes older turns as you approach the context window. It's on by default, so you only tune when it kicks in. Lower `thresholdPercent` to compact sooner:
@@ -56,6 +58,8 @@ See [Default harness](./concepts/default-harness#compaction) for how the loop ap
 | `experimental` | `{ codeMode?: boolean }`                | flags unset | Opt-in flags that can change or disappear in any release. Treat them as unstable. `codeMode` routes executable tools through a sandboxed code-execution wrapper, where the model writes JavaScript that calls the tools inside the [sandbox](./sandbox). |
 | `outputSchema` | Standard Schema or a JSON Schema object | none        | Structured return type for task-mode runs (a subagent, schedule, or remote job). Interactive conversation turns ignore it unless the client supplies a per-message schema.                                                                               |
 | `build`        | `{ externalDependencies?: string[] }`   | none        | Hosted-build packaging controls. `externalDependencies` keeps listed packages external while Eve compiles authored modules such as tools and channels, and traces those packages into the hosted output.                                                 |
+
+`externalDependencies` is a packaging control only. It keeps selected packages as runtime dependencies in the hosted output; it does not authorize, configure, or review any third-party service those packages may call.
 
 ## Where adjacent settings live
 
