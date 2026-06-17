@@ -15,6 +15,9 @@ import {
 import { pruneDockerSandboxTemplates } from "#execution/sandbox/bindings/docker.js";
 import { pruneJustBashSandboxTemplates } from "#execution/sandbox/bindings/just-bash.js";
 import { pruneMicrosandboxTemplates } from "#execution/sandbox/bindings/microsandbox.js";
+import { resolveMicrosandboxOptions } from "#execution/sandbox/bindings/microsandbox-options.js";
+import { loadMicrosandboxModule } from "#execution/sandbox/bindings/microsandbox-runtime.js";
+import type { MicrosandboxCreateOptions } from "#public/sandbox/microsandbox-sandbox.js";
 
 export {
   createDockerSandboxBackend,
@@ -34,6 +37,23 @@ export {
 } from "#execution/sandbox/bindings/microsandbox.js";
 export { isMicrosandboxPlatformSupported } from "#execution/sandbox/bindings/microsandbox-platform.js";
 export { stopDevelopmentSandboxResources } from "#execution/sandbox/development-cleanup.js";
+
+/**
+ * Verifies the optional microsandbox package and VM runtime are ready,
+ * auto-installing them when enabled. Kept behind the local binding facade so
+ * hosted bundles can stub every local sandbox engine through one module.
+ */
+export async function prepareMicrosandboxSandboxBackend(input: {
+  readonly appRoot: string;
+  readonly log?: (message: string) => void;
+  readonly options?: MicrosandboxCreateOptions;
+}): Promise<void> {
+  await loadMicrosandboxModule({
+    appRoot: input.appRoot,
+    log: input.log,
+    options: resolveMicrosandboxOptions(input.options),
+  });
+}
 
 /**
  * Removes stale local sandbox template state for one application

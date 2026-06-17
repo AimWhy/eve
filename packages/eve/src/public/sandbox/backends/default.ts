@@ -1,9 +1,8 @@
 import {
   isDockerDaemonAvailableSync,
   isMicrosandboxPlatformSupported,
+  prepareMicrosandboxSandboxBackend,
 } from "#execution/sandbox/bindings/local.js";
-import { resolveMicrosandboxOptions } from "#execution/sandbox/bindings/microsandbox-options.js";
-import { loadMicrosandboxModule } from "#execution/sandbox/bindings/microsandbox-runtime.js";
 import { lazyBackend } from "#execution/sandbox/lazy-backend.js";
 import type {
   SandboxBackend,
@@ -56,13 +55,7 @@ const PRODUCTION_PROBES: DefaultSandboxProbes = {
   isDeployedOnVercel: () => Boolean(process.env.VERCEL),
   isDockerAvailable: () => isDockerDaemonAvailableSync(),
   isMicrosandboxSupported: () => isMicrosandboxPlatformSupported(),
-  prepareMicrosandbox: async (input) => {
-    await loadMicrosandboxModule({
-      appRoot: input.appRoot,
-      log: input.log,
-      options: resolveMicrosandboxOptions(input.options),
-    });
-  },
+  prepareMicrosandbox: (input) => prepareMicrosandboxSandboxBackend(input),
 };
 
 /**

@@ -17,5 +17,6 @@ describe("createCompiledSandboxBackendPrunePlugin", () => {
     const source = plugin.load?.(id);
 
     expect(source).toContain("export const stopDevelopmentSandboxResources = pruned;");
+    expect(source).toContain("export const prepareMicrosandboxSandboxBackend = pruned;");
   });
 });
