@@ -121,16 +121,17 @@ export function createMicrosandboxWithJustBashFallback(input: {
   readonly prepareMicrosandbox: DefaultSandboxProbes["prepareMicrosandbox"];
   readonly primary: SandboxBackend;
 }): SandboxBackend {
-  let choice: DefaultLocalBackendChoice | undefined;
+  let availabilityChoice: DefaultLocalBackendChoice | undefined;
+  const templateChoices = new Map<string, DefaultLocalBackendChoice>();
 
-  async function select(inputContext: {
+  async function selectAvailableBackend(inputContext: {
     readonly appRoot: string;
     readonly log?: (message: string) => void;
   }): Promise<SandboxBackend> {
-    if (choice === "microsandbox") {
+    if (availabilityChoice === "microsandbox") {
       return input.primary;
     }
-    if (choice === "just-bash") {
+    if (availabilityChoice === "just-bash") {
       return input.fallback;
     }
 
@@ -140,10 +141,10 @@ export function createMicrosandboxWithJustBashFallback(input: {
         log: inputContext.log,
         options: input.options,
       });
-      choice = "microsandbox";
+      availabilityChoice = "microsandbox";
       return input.primary;
     } catch (error) {
-      choice = "just-bash";
+      availabilityChoice = "just-bash";
       inputContext.log?.(
         `microsandbox setup failed; falling back to just-bash: ${toErrorMessage(error)}`,
       );
@@ -157,27 +158,46 @@ export function createMicrosandboxWithJustBashFallback(input: {
     // handles rewrite captured state below so reconnect checks keep working.
     name: input.primary.name,
     async prewarm(prewarmInput) {
-      const backend = await select({
-        appRoot: prewarmInput.runtimeContext.appRoot,
-        log: prewarmInput.log,
-      });
+      const templateChoice = templateChoices.get(prewarmInput.templateKey);
+      const backend =
+        templateChoice === "microsandbox"
+          ? input.primary
+          : templateChoice === "just-bash"
+            ? input.fallback
+            : await selectAvailableBackend({
+                appRoot: prewarmInput.runtimeContext.appRoot,
+                log: prewarmInput.log,
+              });
       try {
-        return await backend.prewarm(prewarmInput as SandboxBackendPrewarmInput);
+        const result = await backend.prewarm(prewarmInput as SandboxBackendPrewarmInput);
+        templateChoices.set(
+          prewarmInput.templateKey,
+          backend === input.primary ? "microsandbox" : "just-bash",
+        );
+        return result;
       } catch (error) {
         if (backend !== input.primary) {
           throw error;
         }
-        choice = "just-bash";
         prewarmInput.log?.(
           `microsandbox prewarm failed; falling back to just-bash: ${toErrorMessage(error)}`,
         );
-        return await input.fallback.prewarm(prewarmInput as SandboxBackendPrewarmInput);
+        const result = await input.fallback.prewarm(prewarmInput as SandboxBackendPrewarmInput);
+        templateChoices.set(prewarmInput.templateKey, "just-bash");
+        return result;
       }
     },
     async create(createInput) {
-      const backend = await select({
-        appRoot: createInput.runtimeContext.appRoot,
-      });
+      const templateChoice =
+        createInput.templateKey === null ? undefined : templateChoices.get(createInput.templateKey);
+      const backend =
+        templateChoice === "microsandbox"
+          ? input.primary
+          : templateChoice === "just-bash"
+            ? input.fallback
+            : await selectAvailableBackend({
+                appRoot: createInput.runtimeContext.appRoot,
+              });
       const handle = await backend.create(createInput as SandboxBackendCreateInput);
       return backend === input.primary ? handle : wrapFallbackHandle(handle, input.primary.name);
     },

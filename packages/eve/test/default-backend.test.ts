@@ -182,17 +182,75 @@ describe("createMicrosandboxWithJustBashFallback", () => {
     await backend.prewarm({
       runtimeContext: { appRoot: "/tmp/app" },
       seedFiles: [],
-      templateKey: "tpl-2",
+      templateKey: "tpl",
     });
 
     expect(calls).toEqual([
       "prepare",
       "microsandbox:prewarm:tpl",
       "just-bash:prewarm:tpl",
-      "just-bash:prewarm:tpl-2",
+      "just-bash:prewarm:tpl",
     ]);
     expect(logs.join("\n")).toContain(
       "microsandbox prewarm failed; falling back to just-bash: template rejected",
     );
+  });
+
+  it("keeps backend choices isolated per template", async () => {
+    const calls: string[] = [];
+    const backend = createMicrosandboxWithJustBashFallback({
+      fallback: createRecordingBackend("just-bash", calls),
+      prepareMicrosandbox: async () => {
+        calls.push("prepare");
+      },
+      primary: {
+        ...createRecordingBackend("microsandbox", calls),
+        async prewarm(input) {
+          calls.push(`microsandbox:prewarm:${input.templateKey}`);
+          if (input.templateKey === "fallback-tpl") {
+            throw new Error("template rejected");
+          }
+          return { reused: false };
+        },
+      },
+    });
+
+    await backend.prewarm({
+      runtimeContext: { appRoot: "/tmp/app" },
+      seedFiles: [],
+      templateKey: "primary-tpl",
+    });
+    await backend.prewarm({
+      runtimeContext: { appRoot: "/tmp/app" },
+      seedFiles: [],
+      templateKey: "fallback-tpl",
+    });
+    const primaryHandle = await backend.create({
+      runtimeContext: { appRoot: "/tmp/app" },
+      sessionKey: "primary-ses",
+      templateKey: "primary-tpl",
+    });
+    const fallbackHandle = await backend.create({
+      runtimeContext: { appRoot: "/tmp/app" },
+      sessionKey: "fallback-ses",
+      templateKey: "fallback-tpl",
+    });
+
+    await expect(primaryHandle.captureState()).resolves.toMatchObject({
+      backendName: "microsandbox",
+      sessionKey: "primary-ses",
+    });
+    await expect(fallbackHandle.captureState()).resolves.toMatchObject({
+      backendName: "microsandbox",
+      sessionKey: "fallback-ses",
+    });
+    expect(calls).toEqual([
+      "prepare",
+      "microsandbox:prewarm:primary-tpl",
+      "microsandbox:prewarm:fallback-tpl",
+      "just-bash:prewarm:fallback-tpl",
+      "microsandbox:create:primary-ses",
+      "just-bash:create:fallback-ses",
+    ]);
   });
 });
