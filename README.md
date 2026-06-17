@@ -14,156 +14,113 @@
 
 </div>
 
-## Getting Started
+Eve is a filesystem-first framework for durable AI agents. Core agent capabilities live in
+conventional locations, so projects are easier to inspect, extend, and operate.
 
-Eve is a filesystem-first framework for durable backend agents on Vercel.
+## The filesystem is the authoring interface
 
-You author an agent as a directory on disk. The directory is the contract:
-
-- `instructions.md` defines the always-on instructions prompt
-- `skills/` define optional procedures
-- `tools/` define typed executable integrations
-- `connections/` define external MCP server connections
-- `sandbox/` overrides the agent's single sandbox (optional) and seeds workspace files
-- `channels/` define message ingress and delivery
-- `subagents/` define specialist child agents
-- `schedules/` define recurring jobs
-- `lib/` holds shared authored code
-- `agent.ts` holds additive runtime config such as model, metadata, build, compaction, and workspace settings
-
-The framework package is `eve`. The CLI binary is `eve`.
-
-## Preview Terms and Safeguards
-
-Eve is currently a preview and subject to the Vercel beta terms; the framework, APIs, documentation, and behavior may change before general availability.
-
-As the deployer, it is your responsibility to ensure your agent complies with applicable laws.
-
-You are responsible for configuring approval policies, tool restrictions, connection scopes, route/session authorization, sandbox controls, telemetry exports, and other safeguards appropriate for your use case.
-
-Before using Eve with non-public, sensitive, regulated, or production data, review which default tools, custom tools, MCP tools, shell/file/web tools, connected services, subagents, schedules, and external actions are available to the agent.
-
-Require human approval or other safeguards for sensitive, irreversible, regulated, financial, healthcare, employment, housing, legal, safety-impacting, user-impacting, or external side-effecting actions.
-
-Unless you configure stricter controls, Eve agents may operate with permissive settings, including tool execution without human approval where approval is omitted and sandbox network egress that is not deny-all. Do not rely on model behavior alone to prevent sensitive or irreversible actions.
-
-## What Eve Prioritizes
-
-- Markdown-first authoring for instructions and procedures
-- TypeScript where typed runtime behavior matters
-- Durable message runs and follow-up turns
-- Inspectable compiled artifacts under `.eve/`
-- Per-agent sandbox with optional authored overrides
-- A stable HTTP protocol with explicit `continuationToken` and `sessionId` contracts
-- A runtime model that keeps channels, harnesses, and workflow execution separate
-
-## Current Mental Model
-
-Eve’s internal split is:
-
-- the channel normalizes inbound transport, applies auth and delivery policy, and owns `continuationToken`
-- the harness does one unit of AI work and returns `{ session, next }`
-- the runtime persists state, follows `next`, streams events, and owns workflow primitives
-
-That split is why the public HTTP protocol separates:
-
-- `continuationToken` for the next user message
-- `sessionId` for streaming and inspection
-
-## Example Layout
+A typical Eve agent has this structure:
 
 ```text
 my-agent/
-├── package.json
-├── tsconfig.json
 └── agent/
-    ├── agent.ts
-    ├── instructions.md
-    ├── skills/
-    ├── tools/
-    ├── connections/
-    ├── sandbox/
-    ├── channels/
-    ├── subagents/
-    ├── schedules/
-    └── lib/
+    ├── agent.ts            # Optional: model and runtime config
+    ├── instructions.md     # Required: the always-on system prompt
+    ├── tools/              # Optional: typed functions the model can call
+    │   └── get_weather.ts
+    ├── skills/             # Optional: procedures loaded on demand
+    │   └── plan_a_trip.md
+    ├── channels/           # Optional: message channels (HTTP, Slack, Discord)
+    │   └── slack.ts
+    └── schedules/          # Optional: recurring cron jobs
+        └── weekly_recap.ts
 ```
 
-## Tiny Example
+Read the [documentation](https://beta.eve.dev/docs) for the full project layout and guides.
 
-`agent/instructions.md`
+## Quick start
+
+```bash
+npx eve@latest init my-agent
+```
+
+This creates a new `my-agent` directory, installs its dependencies, initializes Git, and starts
+the interactive terminal UI.
+
+To add Eve to an existing project, pass a path:
+
+```bash
+cd myapp
+npx eve@latest init .
+```
+
+> [!NOTE]
+> The `eve` package includes its full documentation, so coding agents can read it locally from
+> `node_modules/eve/docs`.
+
+### A minimal example
+
+The generated project includes an `agent` directory. Replace `agent/instructions.md` with:
 
 ```md
-You are a weather-focused assistant. Be concise, accurate, and explicit when you use a tool.
+You are a concise weather demo assistant. Tell users that the weather data is mocked.
 ```
 
-`agent/tools/get_weather.ts`
+Add a mock weather tool at `agent/tools/get_weather.ts`:
 
 ```ts
 import { defineTool } from "eve/tools";
 import { z } from "zod";
 
 export default defineTool({
-  description: "Get the current weather for a city.",
-  inputSchema: z.object({
-    city: z.string(),
-  }),
-  async execute(input) {
-    return {
-      city: input.city,
-      condition: "Sunny",
-      temperatureF: 72,
-    };
+  description: "Return mock weather data for a city.",
+  inputSchema: z.object({ city: z.string().min(1) }),
+  async execute({ city }) {
+    return { city, condition: "Sunny", temperatureF: 72 };
   },
 });
 ```
 
-`agent/agent.ts`
+Choose the model in `agent/agent.ts`:
 
 ```ts
 import { defineAgent } from "eve";
 
 export default defineAgent({
-  model: "openai/gpt-5.4-mini",
-  name: "weather-agent",
+  model: "anthropic/claude-sonnet-4.6",
 });
 ```
 
-## Quick Start
+For a new scaffold, start the agent again:
 
 ```bash
-npx eve@latest init my-agent
+npm run dev
 ```
 
-The command creates the project, installs its dependencies, initializes Git,
-and starts the development server. Add `--channel-web-nextjs` to scaffold the Web Chat
-application. If you already created an empty directory, run `eve init`,
-`eve init .`, or `eve init ./` from inside it to run the same full scaffold there,
-including `package.json`. In a non-empty existing app, `eve init .` adds the
-agent files and missing dependencies instead; that add-agent flow requires an
-existing `package.json`. `eve init` does not create or link a Vercel project.
+That's a working agent. Add human-in-the-loop prompts, subagents, and schedules as needed.
+Follow the [first-agent tutorial](https://beta.eve.dev/docs/tutorial/first-agent) for a complete
+walkthrough.
 
-Useful commands:
+## Community
 
-- `eve info` shows discovery results and compiled artifacts
-- `eve init [name]` creates a new agent
-- `eve build` compiles `.eve/` and builds the host output
-- `eve start` serves the built `.output/` app
-- `eve dev` starts the local runtime and interactive terminal UI
+The Eve community lives on [GitHub Discussions](https://github.com/vercel/eve/discussions),
+where you can ask questions, share ideas, and show what you've built.
 
-## Public Docs
+## Contributing
 
-Start here:
+Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) to get the repo
+running locally and land a change, and use
+[issues](https://github.com/vercel/eve/issues) and
+[discussions](https://github.com/vercel/eve/discussions) to collaborate. By
+participating, you agree to our [Code of Conduct](CODE_OF_CONDUCT.md).
 
-1. [`docs/README.md`](docs/README.md)
-2. [`docs/getting-started.mdx`](docs/getting-started.mdx)
-3. [`docs/reference/project-layout.md`](docs/reference/project-layout.md)
-4. [`docs/agent-config.md`](docs/agent-config.md)
-5. [`docs/reference/typescript-api.md`](docs/reference/typescript-api.md)
-6. [`docs/connections.mdx`](docs/connections.mdx)
+## Security
 
-## Repo Guide
+Please do not open public issues for security vulnerabilities. Instead, follow
+[SECURITY.md](SECURITY.md) and report responsibly to
+[responsible.disclosure@vercel.com](mailto:responsible.disclosure@vercel.com).
 
-- [`packages/eve/README.md`](packages/eve/README.md) is the package-facing overview
-- [`apps/fixtures/weather-agent`](apps/fixtures/weather-agent) is the weather-focused fixture used by local dev, smokes, and bundle analysis
-- [`packages/eve/src/public/index.ts`](packages/eve/src/public/index.ts) is the public API source of truth
+## Beta terms
+
+Eve is currently in beta and subject to the [Vercel beta terms](https://vercel.com/docs/release-phases/public-beta-agreement);
+the framework, APIs, documentation, and behavior may change before general availability.
