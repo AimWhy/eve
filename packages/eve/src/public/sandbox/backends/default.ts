@@ -161,7 +161,18 @@ export function createMicrosandboxWithJustBashFallback(input: {
         appRoot: prewarmInput.runtimeContext.appRoot,
         log: prewarmInput.log,
       });
-      return await backend.prewarm(prewarmInput as SandboxBackendPrewarmInput);
+      try {
+        return await backend.prewarm(prewarmInput as SandboxBackendPrewarmInput);
+      } catch (error) {
+        if (backend !== input.primary) {
+          throw error;
+        }
+        choice = "just-bash";
+        prewarmInput.log?.(
+          `microsandbox prewarm failed; falling back to just-bash: ${toErrorMessage(error)}`,
+        );
+        return await input.fallback.prewarm(prewarmInput as SandboxBackendPrewarmInput);
+      }
     },
     async create(createInput) {
       const backend = await select({

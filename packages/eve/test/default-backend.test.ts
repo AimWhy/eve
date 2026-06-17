@@ -155,4 +155,44 @@ describe("createMicrosandboxWithJustBashFallback", () => {
       "microsandbox setup failed; falling back to just-bash: install rejected",
     );
   });
+
+  it("prewarms just-bash when microsandbox prewarm fails", async () => {
+    const calls: string[] = [];
+    const logs: string[] = [];
+    const backend = createMicrosandboxWithJustBashFallback({
+      fallback: createRecordingBackend("just-bash", calls),
+      prepareMicrosandbox: async () => {
+        calls.push("prepare");
+      },
+      primary: {
+        ...createRecordingBackend("microsandbox", calls),
+        async prewarm(input) {
+          calls.push(`microsandbox:prewarm:${input.templateKey}`);
+          throw new Error("template rejected");
+        },
+      },
+    });
+
+    await backend.prewarm({
+      log: (message) => logs.push(message),
+      runtimeContext: { appRoot: "/tmp/app" },
+      seedFiles: [],
+      templateKey: "tpl",
+    });
+    await backend.prewarm({
+      runtimeContext: { appRoot: "/tmp/app" },
+      seedFiles: [],
+      templateKey: "tpl-2",
+    });
+
+    expect(calls).toEqual([
+      "prepare",
+      "microsandbox:prewarm:tpl",
+      "just-bash:prewarm:tpl",
+      "just-bash:prewarm:tpl-2",
+    ]);
+    expect(logs.join("\n")).toContain(
+      "microsandbox prewarm failed; falling back to just-bash: template rejected",
+    );
+  });
 });
