@@ -114,13 +114,13 @@ export default defineSandbox({
 
 The backend decides where the sandbox runs. eve ships four pinned factories from nested `eve/sandbox/*` imports plus an availability-aware default from `eve/sandbox`:
 
-| Backend            | Runs the sandbox                                                                               |
-| ------------------ | ---------------------------------------------------------------------------------------------- |
-| `vercel()`         | on [Vercel Sandbox](https://vercel.com/docs/sandbox).                                          |
-| `docker()`         | locally in a Docker container, driven through the `docker` CLI.                                |
-| `microsandbox()`   | locally in a lightweight [microsandbox](https://www.npmjs.com/package/microsandbox) VM.        |
-| `justbash()`       | locally in the pure-JS `just-bash` interpreter (no daemon or VM, but no real binaries either). |
-| `defaultBackend()` | picks the best available: Vercel Sandbox on hosted Vercel → Docker → microsandbox → just-bash. |
+| Backend            | Runs the sandbox                                                                                                   |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------ |
+| `vercel()`         | on [Vercel Sandbox](https://vercel.com/docs/sandbox).                                                              |
+| `docker()`         | locally in a Docker container, driven through the `docker` CLI.                                                    |
+| `microsandbox()`   | locally in a lightweight [microsandbox](https://www.npmjs.com/package/microsandbox) VM.                            |
+| `justbash()`       | locally in the pure-JS `just-bash` interpreter (no daemon or VM, but no real binaries either).                     |
+| `defaultBackend()` | picks the best available: Vercel Sandbox on hosted Vercel → Docker → microsandbox when setup succeeds → just-bash. |
 
 Configuring a pinned factory uses that backend unconditionally. `docker()` always requires a reachable Docker daemon, and `vercel()` always creates hosted sandboxes (including from local dev, with Vercel credentials).
 
@@ -128,8 +128,8 @@ With `backend` omitted, eve uses `defaultBackend()`, which resolves on first use
 
 1. **Vercel Sandbox** when deploying on Vercel (`process.env.VERCEL` is set), since local container/VM runtimes can't run there.
 2. **Docker** when a daemon is reachable through a Docker-compatible `docker` CLI (Docker Desktop, OrbStack, Colima, Podman via its docker-compatible CLI; override the binary with `EVE_DOCKER_PATH`).
-3. **microsandbox** when the host supports it: macOS on Apple Silicon, or glibc Linux with KVM enabled.
-4. **just-bash** as the dependency-free fallback.
+3. **microsandbox** when the host supports it and its package plus VM runtime are ready. In `eve dev`, eve tries to install both automatically before using the backend.
+4. **just-bash** as the dependency-free fallback, including when microsandbox setup or auto-install fails.
 
 `defaultBackend()` also accepts a keyed bag so each inner backend gets its own typed create options:
 
