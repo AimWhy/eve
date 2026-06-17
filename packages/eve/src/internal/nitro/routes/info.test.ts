@@ -113,6 +113,19 @@ describe("handleAgentInfoRequest", () => {
     expect(mocks.getVercelOidcToken).toHaveBeenCalledOnce();
   });
 
+  it("does not report OIDC when the Vercel SDK returns an empty token", async () => {
+    mocks.getVercelOidcToken.mockResolvedValue("");
+
+    const response = await requestAgentInfo();
+
+    expect(response.status).toBe(200);
+    expect(mocks.buildAgentInfoResponseFromManifest).toHaveBeenCalledWith(GATEWAY_MANIFEST_DATA, {
+      mode: "development",
+      gatewayCredentials: { apiKey: false, oidc: false },
+    });
+    expect(mocks.getVercelOidcToken).toHaveBeenCalledOnce();
+  });
+
   it("does not resolve OIDC when an AI Gateway API key is present", async () => {
     vi.stubEnv("AI_GATEWAY_API_KEY", "gateway-key");
 

@@ -45,8 +45,8 @@ async function resolveGatewayCredentialPresence(
   }
 
   try {
-    await getVercelOidcToken();
-    return { apiKey: false, oidc: true };
+    const token = await getVercelOidcToken();
+    return { apiKey: false, oidc: token.trim() !== "" };
   } catch {
     return { apiKey: false, oidc: false };
   }
