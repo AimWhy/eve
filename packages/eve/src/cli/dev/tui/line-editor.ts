@@ -96,6 +96,7 @@ export function deleteWord(state: LineState): LineState {
 export function applyLineEditorKey(state: LineState, key: TerminalKey): LineState | undefined {
   switch (key.type) {
     case "character":
+    case "paste":
       return insert(state, key.value);
     case "backspace":
       return backspace(state);

@@ -70,6 +70,8 @@ The prompt input behaves like a shell line editor.
 | `Ctrl+L`                                       | Cycle the log display mode (`none → all → stderr → sandbox → none`) and briefly show the mode in the status line. |
 | `Ctrl+R`                                       | Redraw the screen.                                                                                                |
 
+Pasting multi-line text inserts it intact: the prompt enables bracketed paste, so embedded newlines stay in the message (shown inline as `⏎`) rather than submitting at the first line. `Enter` still sends.
+
 If a turn fails terminally (the server session dies or the connection drops), the TUI starts a fresh session and notes it inline so you can keep going. Server-side context resets with the old session.
 
 ## Answer the agent inline
