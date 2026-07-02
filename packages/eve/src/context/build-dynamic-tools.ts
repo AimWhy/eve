@@ -8,8 +8,9 @@ import {
   LiveStepToolsKey,
 } from "#context/keys.js";
 import type { DurableDynamicToolMetadata } from "#context/keys.js";
-import { buildCallbackContext } from "#context/build-callback-context.js";
+import { buildBaseToolContext } from "#context/build-base-tool-context.js";
 import { createLogger } from "#internal/logging.js";
+import type { ApprovalContext, ApprovalStatus } from "#public/definitions/approval.js";
 
 const log = createLogger("dynamic-tools");
 
@@ -49,14 +50,36 @@ function replayTools(metadata: readonly DurableDynamicToolMetadata[]): HarnessTo
 
     tools.push({
       description: m.description,
-      execute: (input: unknown) => stepFn(m.closureVars, input, buildCallbackContext()),
+      execute: (input: unknown, options) =>
+        stepFn(m.closureVars, input, buildBaseToolContext(options?.abortSignal)),
       inputSchema: jsonSchema(m.inputSchema),
       name: m.name,
+      approval: buildReplayedApproval(m),
       outputSchema: m.outputSchema === undefined ? undefined : jsonSchema(m.outputSchema),
     });
   }
 
   return tools;
+}
+
+function buildReplayedApproval(
+  metadata: DurableDynamicToolMetadata,
+): HarnessToolDefinition["approval"] | undefined {
+  if (metadata.approvalStepFnName === undefined) {
+    return undefined;
+  }
+
+  const approvalStepFn = lookupStepFunction(metadata.approvalStepFnName);
+  if (approvalStepFn === null) {
+    log.warn(
+      `Dynamic tool "${metadata.name}" references approval function "${metadata.approvalStepFnName}" ` +
+        "which is not registered — requiring approval by default.",
+    );
+    return () => "user-approval";
+  }
+
+  return async (approvalCtx: ApprovalContext) =>
+    (await approvalStepFn(metadata.closureVars ?? {}, approvalCtx)) as ApprovalStatus;
 }
 
 /**

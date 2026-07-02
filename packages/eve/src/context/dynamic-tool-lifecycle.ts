@@ -1,6 +1,7 @@
 import { jsonSchema, zodSchema, type FlexibleSchema, type ModelMessage } from "ai";
 
 import type { HarnessToolDefinition } from "#harness/execute-tool.js";
+import type { ApprovalContext } from "#public/definitions/approval.js";
 import type { DynamicToolEntry } from "#shared/dynamic-tool-definition.js";
 import type { HandleMessageStreamEvent } from "#protocol/message.js";
 import {
@@ -11,7 +12,7 @@ import type { ResolvedDynamicToolResolver } from "#runtime/types.js";
 import { createLogger } from "#internal/logging.js";
 import { normalizeJsonSchemaDefinition } from "#internal/json-schema.js";
 import { toErrorMessage } from "#shared/errors.js";
-import { buildCallbackContext } from "#context/build-callback-context.js";
+import { buildBaseToolContext } from "#context/build-base-tool-context.js";
 import type { ContextContainer } from "#context/container.js";
 import type { ContextKey } from "#context/key.js";
 import {
@@ -31,11 +32,11 @@ const log = createLogger("dynamic-tools");
 function toHarnessToolDefinition(name: string, entry: DynamicToolEntry): HarnessToolDefinition {
   return {
     description: entry.description,
-    execute: (input: unknown) =>
-      entry.execute(input as Record<string, unknown>, buildCallbackContext()),
+    execute: (input: unknown, options) =>
+      entry.execute(input as Record<string, unknown>, buildBaseToolContext(options?.abortSignal)),
     inputSchema: convertInputSchema(entry.inputSchema),
     name,
-    needsApproval: entry.needsApproval,
+    approval: entry.approval,
     outputSchema: convertOptionalOutputSchema(entry.outputSchema),
     ...(entry.toModelOutput !== undefined
       ? { toModelOutput: entry.toModelOutput as (output: unknown) => unknown }
@@ -68,13 +69,15 @@ function qualifyDynamicToolNames(
 
   if (keys.length === 0) return result;
 
+  // A single returned defineTool is named after the file slug; a map names each
+  // entry by its bare key (authors namespace keys themselves if needed).
   if (isSingle) {
     result.push({ name: slug, entryKey: keys[0]!, entry: entries[keys[0]!]! });
     return result;
   }
 
   for (const key of keys) {
-    result.push({ name: `${slug}__${key}`, entryKey: key, entry: entries[key]! });
+    result.push({ name: key, entryKey: key, entry: entries[key]! });
   }
   return result;
 }
@@ -115,7 +118,8 @@ export function replayDynamicSessionTools(
 
     tools.push({
       description: m.description,
-      execute: (input: unknown) => stepFn(m.closureVars, input, buildCallbackContext()),
+      execute: (input: unknown, options) =>
+        stepFn(m.closureVars, input, buildBaseToolContext(options?.abortSignal)),
       inputSchema: jsonSchema(m.inputSchema),
       name: m.name,
       outputSchema: m.outputSchema === undefined ? undefined : jsonSchema(m.outputSchema),
@@ -228,6 +232,10 @@ async function resolveToolsFromEvent(
 
   const metadata: DurableDynamicToolMetadata[] = [];
   const liveTools: HarnessToolDefinition[] = [];
+  // Tracks which resolver claimed each name so two dynamic resolvers can't
+  // silently shadow each other (a dynamic tool overriding an authored one is
+  // allowed and handled at merge time).
+  const dynamicToolOwners = new Map<string, string>();
 
   for (const outcome of outcomes) {
     if (outcome.status === "rejected") {
@@ -241,7 +249,18 @@ async function resolveToolsFromEvent(
     const { resolver, entries, isSingle } = outcome.value;
     const named = qualifyDynamicToolNames(resolver.slug, isSingle, entries);
     for (const { name, entryKey, entry } of named) {
+      const previousOwner = dynamicToolOwners.get(name);
+      if (previousOwner !== undefined && previousOwner !== resolver.slug) {
+        throw new Error(
+          `Dynamic tool "${name}" from resolver "${resolver.slug}" collides with dynamic resolver "${previousOwner}". Namespace the map key manually, e.g. "${resolver.slug}__${name}".`,
+        );
+      }
+      dynamicToolOwners.set(name, resolver.slug);
+
       liveTools.push(toHarnessToolDefinition(name, entry));
+      if (event.type === "step.started") {
+        continue;
+      }
 
       const stepFn =
         "__executeStepFn" in entry
@@ -273,6 +292,15 @@ async function resolveToolsFromEvent(
         serializedClosureVars = {};
       }
 
+      let approvalStepFnName: string | undefined;
+      if (entry.approval !== undefined) {
+        approvalStepFnName = `eve:dynamic-tool-approval:${resolver.slug}:${entryKey}`;
+        const originalApproval = entry.approval.bind(entry);
+        registerStepFunction(approvalStepFnName, (_closureVars: unknown, approvalCtx: unknown) =>
+          originalApproval(approvalCtx as ApprovalContext),
+        );
+      }
+
       metadata.push({
         name,
         description: entry.description,
@@ -284,6 +312,7 @@ async function resolveToolsFromEvent(
         resolverSlug: resolver.slug,
         entryKey,
         executeStepFnName,
+        approvalStepFnName,
         closureVars: serializedClosureVars,
       });
     }
